@@ -9,6 +9,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from dotenv import load_dotenv, find_dotenv
 from langchain_openai import OpenAIEmbeddings # can be replaced with ollama to run locally
 from langchain_community.vectorstores import Chroma 
+from langchain_openai import ChatOpenAI # can be replaced with ollama to run locally
+from langchain.prompts import PromptTemplate 
+from langchain.chains import RetrievalQA
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..')) # Add parent directory to path variable
 load_dotenv(find_dotenv()) # Load .env file
@@ -17,6 +20,7 @@ openai.api_key = os.getenv('OPENAI_API_KEY') # Set OpenAI API key
 class RagApi: 
     def __init__(self, docs_dir='docs', db_dir='chroma', load_vectorstore=False):
         self.docs_dir = docs_dir
+        # TODO: maybe change this line to use llama 3 embeddings
         embeddings = OpenAIEmbeddings() # change this line to use ollama
         
         if load_vectorstore:
@@ -29,13 +33,30 @@ class RagApi:
             chunks = self.split_pages(pages) # split pages into chunks
             self.vecdb = self.create_db(chunks, embeddings, db_dir) # create vectorstore
 
-        retriever = self.create_retriever()
-        question = "How do I get a job at Google?"
-        compressed_docs = retriever.get_relevant_documents(question)
-        print(compressed_docs[0])
+        self.retriever = self.create_retriever()
+        self.llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0) # TODO: change answering model to llama
+        self.chain = self.create_chain() 
+
+        res = self.chain({"query": "how do I get a job at Google?"})
+        print(res["result"])
+        print(res["source_documents"])
+
+    def create_chain(self): 
+        template = """Use the following pieces of context to answer the question at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. Use three sentences maximum. Keep the answer as concise as possible. Always say "thanks for asking!" at the end of the answer. 
+            {context}
+            Question: {question}
+            Helpful Answer:"""
+        QA_CHAIN_PROMPT = PromptTemplate.from_template(template)
+        return RetrievalQA.from_chain_type(
+            self.llm,
+            retriever = self.retriever,
+            return_source_documents = True, 
+            chain_type_kwargs = { "prompt": QA_CHAIN_PROMPT}
+        )
 
     def create_retriever(self):
-        llm = OpenAI(temperature=0, model="gpt-3.5-turbo-instruct") # LLM in charge of compressing the document
+        # TODO: maybe change this line to use llama as the llm 
+        llm = OpenAI(temperature=0, model="gpt-3.5-turbo-instruct") # LLM in charge of compressing the document, can be changed to ollama
         compressor = LLMChainExtractor.from_llm(llm) 
 
         # contextual compression retriever -> in charge of retrieving the most relevant chunks and compressing them
