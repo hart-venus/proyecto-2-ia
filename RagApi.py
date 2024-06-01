@@ -2,6 +2,9 @@ import os
 import sys 
 import openai 
 from langchain_community.document_loaders import PyPDFLoader
+from langchain_openai import OpenAI 
+from langchain.retrievers import ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import LLMChainExtractor
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from dotenv import load_dotenv, find_dotenv
 from langchain_openai import OpenAIEmbeddings # can be replaced with ollama to run locally
@@ -26,9 +29,20 @@ class RagApi:
             chunks = self.split_pages(pages) # split pages into chunks
             self.vecdb = self.create_db(chunks, embeddings, db_dir) # create vectorstore
 
+        retriever = self.create_retriever()
         question = "How do I get a job at Google?"
-        docs = self.vecdb.similarity_search(question, k=5)
-        print(docs[0])
+        compressed_docs = retriever.get_relevant_documents(question)
+        print(compressed_docs[0])
+
+    def create_retriever(self):
+        llm = OpenAI(temperature=0, model="gpt-3.5-turbo-instruct") # LLM in charge of compressing the document
+        compressor = LLMChainExtractor.from_llm(llm) 
+
+        # contextual compression retriever -> in charge of retrieving the most relevant chunks and compressing them
+        return ContextualCompressionRetriever(
+            base_compressor=compressor,
+            base_retriever=self.vecdb.as_retriever(search_type= "mmr") # max marginal relevance enforces diversity among results
+        )
 
     def create_db(self, chunks, embeddings, db_dir):
         # 1. delete the contents of chroma dir if there are any
