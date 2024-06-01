@@ -1,2 +1,4 @@
+from RagApi import RagApi
+
 if __name__ == '__main__':
-    print('Hello, World!')
+    ra = RagApi()
