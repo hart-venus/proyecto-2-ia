@@ -34,6 +34,11 @@ if __name__ == '__main__':
         "How can I prepare for a technical interview?",
         "What are some tips for negotiating salary?",
         "How can I improve my work-life balance?",
+        "How can I showcase my problem-solving skills on my resume?",
+        "What are some effective ways to highlight my technical skills on my resume?",
+        "How can I quantify my achievements and impact on my resume?",
+        "How can I showcase my leadership and teamwork skills on my resume?",
+        "How can I make my resume stand out among a large pool of applicants?",
     ]
 
     results = []
